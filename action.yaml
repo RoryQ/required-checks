@@ -1,0 +1,17 @@
+name: Required Checks
+description: Define required checks inside your repository.
+author: "Rory Quinn"
+
+inputs:
+  github_token:
+    description: Required.
+  required_workflow_patterns:
+    description: List of patterns to check.
+  version:
+    description: Release version of action to run.
+runs:
+  using: node16
+  main: index.js
+branding:
+  icon: "check-square"
+  color: "green"

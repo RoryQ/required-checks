@@ -1,0 +1,31 @@
+name: Run Action
+
+on:
+  pull_request:
+    types:
+      # For PR description inspection only
+      - edited
+      - opened
+      - reopened
+      - synchronize
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  run-golang:
+    env:
+      REQUIRED_CHECKS_DEBUG: true
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-go@v5
+      with:
+        go-version: stable
+    - run: go run main.go
+      env:
+        INPUT_PATHS: |
+          - Dummy Test Item
+          - Dummy Test Item 2
+        INPUT_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
