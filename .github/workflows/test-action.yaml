@@ -25,7 +25,6 @@ jobs:
         go-version: stable
     - run: go run main.go
       env:
-        INPUT_PATHS: |
-          - Dummy Test Item
-          - Dummy Test Item 2
+        INPUT_REQUIRED: |
+          - unit-tests
         INPUT_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

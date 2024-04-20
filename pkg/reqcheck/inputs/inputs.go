@@ -5,13 +5,15 @@ const (
 	Token = "token"
 
 	// RequiredWorkflowPatterns is a yaml list of patterns to check
-	RequiredWorkflowPatterns = "required-workflow-patterns"
+	RequiredWorkflowPatterns = "required"
 
 	// InitialDelaySeconds Initial delay before polling
 	InitialDelaySeconds = "initial-delay-seconds"
 
 	// PollFrequencySeconds Polling frequency
 	PollFrequencySeconds = "poll-frequency-seconds"
+
+	TargetSHA = "target-sha"
 
 	// Version release version of the action to run
 	Version = "version"

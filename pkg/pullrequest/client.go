@@ -13,14 +13,14 @@ type Client struct {
 	Owner  string
 	Repo   string
 	Number int
-	ctx *githubactions.GitHubContext
+	ctx    *githubactions.GitHubContext
 	gh     *github.Client
 }
 
-func (pr Client) ListChecks(ctx context.Context, options *github.ListCheckRunsOptions) ([]*github.CheckRun, error) {
+func (pr Client) ListChecks(ctx context.Context, sha string, options *github.ListCheckRunsOptions) ([]*github.CheckRun, error) {
 	var checks []*github.CheckRun
 	for {
-		checksPage, resp, err := pr.gh.Checks.ListCheckRunsForRef(ctx, pr.Owner, pr.Repo, pr.ctx.SHA, options)
+		checksPage, resp, err := pr.gh.Checks.ListCheckRunsForRef(ctx, pr.Owner, pr.Repo, sha, options)
 		if err != nil {
 			return nil, err
 		}
@@ -89,7 +89,7 @@ func NewClient(action *githubactions.Action, gh *github.Client) (Client, error) 
 		Owner:  owner,
 		Repo:   repo,
 		Number: number,
-		ctx: ctx,
+		ctx:    ctx,
 		gh:     gh,
 	}, nil
 }
