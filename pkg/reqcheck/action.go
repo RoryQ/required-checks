@@ -3,12 +3,13 @@ package reqcheck
 import (
 	"context"
 	"fmt"
-	"slices"
+	"strings"
 	"time"
 
 	"github.com/google/go-github/v61/github"
 	"github.com/samber/lo"
 	"github.com/sethvargo/go-githubactions"
+	"slices"
 
 	"github.com/roryq/required-checks/pkg/pullrequest"
 )
@@ -22,25 +23,36 @@ func Run(ctx context.Context, cfg *Config, action *githubactions.Action, gh *git
 	action.Infof("Waiting %s before initial check", cfg.InitialDelay)
 	time.Sleep(cfg.InitialDelay)
 
+	ghCtx, err := action.Context()
+	if err != nil {
+		return err
+	}
+
 	for {
 		checks, err := pr.ListChecks(ctx, cfg.TargetSHA, nil)
 		if err != nil {
 			return err
 		}
 		action.Infof("Got %d checks", len(checks))
-		action.Debugf("Checks: %q", checkNames(checks))
+		action.Infof("Checks: %q", checkNames(checks))
 
-		requiredSet := lo.SliceToMap(cfg.RequiredWorkflowPatterns, func(item string) (string, struct{}) { return item, struct{}{} })
+		requiredSet := lo.SliceToMap(cfg.RequiredWorkflowPatterns, func(item string) (string, bool) { return item, false })
 		toCheck := []*github.CheckRun{}
 		for _, c := range checks {
+			if strings.Contains(c.GetDetailsURL(), fmt.Sprintf("runs/%d/job", ghCtx.RunID)) {
+				// skip waiting for this check if this is named the same as another check
+				action.Infof("Skipping check: %q", c.GetName())
+				continue
+			}
 			if _, ok := requiredSet[c.GetName()]; ok {
 				toCheck = append(toCheck, c)
-				delete(requiredSet, c.GetName())
+				requiredSet[c.GetName()] = true
 			}
 		}
 
-		if len(requiredSet) > 0 {
-			return fmt.Errorf("required checks not found: %q", keys(requiredSet))
+		requiredNotFound := lo.OmitByValues(requiredSet, []bool{true})
+		if len(requiredNotFound) > 0 {
+			return fmt.Errorf("required checks not found: %q in %q", lo.Keys(requiredNotFound))
 		}
 
 		// any failed
@@ -67,14 +79,6 @@ func Run(ctx context.Context, cfg *Config, action *githubactions.Action, gh *git
 		time.Sleep(cfg.PollFrequency)
 	}
 	return nil
-}
-
-func keys(m map[string]struct{}) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	return keys
 }
 
 func checkNames(checks []*github.CheckRun) []string {
