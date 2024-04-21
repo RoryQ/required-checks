@@ -18,8 +18,8 @@ type Config struct {
 }
 
 const (
-	InitialDelayDefault  = 10 * time.Second
-	PollFrequencyDefault = 15 * time.Second
+	InitialDelayDefault  = 15 * time.Second
+	PollFrequencyDefault = 30 * time.Second
 )
 
 func ConfigFromInputs(action *githubactions.Action) (*Config, error) {

@@ -40,16 +40,16 @@ func Run(ctx context.Context, cfg *Config, action *githubactions.Action, gh *git
 		}
 
 		if len(requiredSet) > 0 {
-			return fmt.Errorf("requiredSet checks not found: %q", keys(requiredSet))
+			return fmt.Errorf("required checks not found: %q", keys(requiredSet))
 		}
 
 		// any failed
 		failed := lo.Filter(toCheck, func(item *github.CheckRun, _ int) bool {
-			return slices.Contains(failed, item.GetConclusion())
+			return slices.Contains(failedConclusions, item.GetConclusion())
 		})
 
 		if len(failed) > 0 {
-			return fmt.Errorf("requiredSet checks failed: %q", checkNames(failed))
+			return fmt.Errorf("required checks failed: %q", checkNames(failed))
 		}
 
 		// not completed
@@ -107,4 +107,4 @@ const (
 	StatusPending    = "pending"
 )
 
-var failed = []string{ConclusionFailure, ConclusionCancelled, ConclusionTimedOut}
+var failedConclusions = []string{ConclusionFailure, ConclusionCancelled, ConclusionTimedOut}
