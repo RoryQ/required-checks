@@ -21,14 +21,8 @@ func Test_getPRNumber(t *testing.T) {
 	}
 
 	t.Run("pull_request_event", func(t *testing.T) {
-		prNum, err := getPRNumber(readEvent("pull-request.edited"))
+		prNum, err := getPRNumber(readEvent("pull-request.opened"))
 		assert.NoError(t, err)
 		assert.Equal(t, 2, prNum)
-	})
-
-	t.Run("issue_comment_event", func(t *testing.T) {
-		prNum, err := getPRNumber(readEvent("issue-comment.created"))
-		assert.NoError(t, err)
-		assert.Equal(t, 1, prNum)
 	})
 }

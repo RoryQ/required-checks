@@ -3,10 +3,16 @@ description: Define required checks inside your repository.
 author: "Rory Quinn"
 
 inputs:
-  github_token:
-    description: Required.
+  token:
+    description: GitHub token
   required_workflow_patterns:
     description: List of patterns to check.
+  target_sha:
+    description: Target SHA.
+  initial_delay_seconds:
+    description: Initial delay before polling.
+  poll_frequency_seconds:
+    description: Polling frequency.
   version:
     description: Release version of action to run.
 runs:
