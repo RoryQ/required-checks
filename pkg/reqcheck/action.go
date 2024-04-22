@@ -3,6 +3,7 @@ package reqcheck
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -28,6 +29,12 @@ func Run(ctx context.Context, cfg *Config, action *githubactions.Action, gh *git
 		return err
 	}
 
+	rules, err := NewRuleset(cfg.RequiredWorkflowPatterns)
+	if err != nil {
+		return err
+	}
+
+	foundSelf := false
 	for {
 		checks, err := pr.ListChecks(ctx, cfg.TargetSHA, nil)
 		if err != nil {
@@ -41,18 +48,21 @@ func Run(ctx context.Context, cfg *Config, action *githubactions.Action, gh *git
 		for _, c := range checks {
 			if strings.Contains(c.GetDetailsURL(), fmt.Sprintf("runs/%d/job", ghCtx.RunID)) {
 				// skip waiting for this check if this is named the same as another check
-				action.Infof("Skipping check: %q", c.GetName())
+				if !foundSelf {
+					action.Infof("Skipping check: %q", c.GetName())
+					foundSelf = true
+				}
 				continue
 			}
-			if _, ok := requiredSet[c.GetName()]; ok {
+			if found := rules.First(c.GetName()); found != nil {
 				toCheck = append(toCheck, c)
-				requiredSet[c.GetName()] = true
+				requiredSet[found.String()] = true
 			}
 		}
 
 		requiredNotFound := lo.OmitByValues(requiredSet, []bool{true})
 		if len(requiredNotFound) > 0 {
-			return fmt.Errorf("required checks not found: %q in %q", lo.Keys(requiredNotFound))
+			return fmt.Errorf("required checks not found: %q", lo.Keys(requiredNotFound))
 		}
 
 		// any failed
@@ -112,3 +122,26 @@ const (
 )
 
 var failedConclusions = []string{ConclusionFailure, ConclusionCancelled, ConclusionTimedOut}
+
+type Ruleset []*regexp.Regexp
+
+func NewRuleset(patterns []string) (Ruleset, error) {
+	r := make([]*regexp.Regexp, 0, len(patterns))
+	for _, p := range patterns {
+		re, err := regexp.Compile(p)
+		if err != nil {
+			return nil, err
+		}
+		r = append(r, re)
+	}
+	return r, nil
+}
+
+func (r Ruleset) First(test string) *regexp.Regexp {
+	for _, re := range r {
+		if re.MatchString(test) {
+			return re
+		}
+	}
+	return nil
+}
