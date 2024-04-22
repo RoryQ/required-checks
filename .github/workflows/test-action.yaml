@@ -25,6 +25,6 @@ jobs:
         go-version: stable
     - run: go run main.go
       env:
-        INPUT_REQUIRED: |
+        INPUT_REQUIRED_WORKFLOW_PATTERNS: |
           - tests
-        INPUT_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        INPUT_TOKEN: ${{ secrets.GITHUB_TOKEN }}

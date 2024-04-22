@@ -3,7 +3,7 @@ const os = require('os')
 const process = require('process')
 
 const OwnerRepo = "RoryQ/required-checks"
-const BinaryName = "required_checks"
+const BinaryName = "required-checks"
 
 function logDebug(...data) {
     if (!!process.env.REQUIRED_CHECKS_DEBUG) {
@@ -63,7 +63,7 @@ function determineVersion() {
 }
 
 function main() {
-    logDebug(process.env.INPUT_PATHS)
+    logDebug(process.env.INPUT_REQUIRED)
     logDebug("started")
     const versionTag = determineVersion()
     let status = downloadBinary(versionTag, chooseBinary(versionTag))

@@ -2,18 +2,18 @@ package inputs
 
 const (
 	// Token required for the GitHub API
-	Token = "token"
+	Token = "TOKEN"
 
 	// RequiredWorkflowPatterns is a yaml list of patterns to check
-	RequiredWorkflowPatterns = "required"
+	RequiredWorkflowPatterns = "REQUIRED_WORKFLOW_PATTERN"
 
 	// InitialDelaySeconds Initial delay before polling
-	InitialDelaySeconds = "initial-delay-seconds"
+	InitialDelaySeconds = "INITIAL_DELAY_SECONDS"
 
 	// PollFrequencySeconds Polling frequency
-	PollFrequencySeconds = "poll-frequency-seconds"
+	PollFrequencySeconds = "POLL_FREQUENCY_SECONDS"
 
-	TargetSHA = "target-sha"
+	TargetSHA = "TARGET_SHA"
 
 	// Version release version of the action to run
 	Version = "version"
