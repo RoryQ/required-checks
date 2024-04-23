@@ -35,6 +35,22 @@ func ConfigFromInputs(action *githubactions.Action) (*Config, error) {
 		}
 	}
 
+	if initalDelaySeconds := action.GetInput(inputs.InitialDelaySeconds); initalDelaySeconds != "" {
+		if ids, err := strconv.Atoi(initalDelaySeconds); err != nil {
+			action.Warningf("Failed to parse InitialDelaySeconds: %s", err)
+		} else {
+			c.InitialDelay = time.Duration(ids) * time.Second
+		}
+	}
+
+	if pollFrequencySeconds := action.GetInput(inputs.PollFrequencySeconds); pollFrequencySeconds != "" {
+		if pfs, err := strconv.Atoi(pollFrequencySeconds); err != nil {
+			action.Warningf("Failed to parse PollFrequencySeconds: %s", err)
+		} else {
+			c.PollFrequency = time.Duration(pfs) * time.Second
+		}
+	}
+	
 	var err error
 	c.TargetSHA, err = defaultTargetSHA(action)
 	if err != nil {
