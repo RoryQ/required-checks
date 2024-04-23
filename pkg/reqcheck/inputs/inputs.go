@@ -5,7 +5,7 @@ const (
 	Token = "TOKEN"
 
 	// RequiredWorkflowPatterns is a yaml list of patterns to check
-	RequiredWorkflowPatterns = "REQUIRED_WORKFLOW_PATTERN"
+	RequiredWorkflowPatterns = "REQUIRED_WORKFLOW_PATTERNS"
 
 	// InitialDelaySeconds Initial delay before polling
 	InitialDelaySeconds = "INITIAL_DELAY_SECONDS"
