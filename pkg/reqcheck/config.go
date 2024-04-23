@@ -12,22 +12,25 @@ import (
 )
 
 type Config struct {
-	RequiredWorkflowPatterns []string
-	InitialDelay             time.Duration
-	PollFrequency            time.Duration
-	TargetSHA                string
+	RequiredWorkflowPatterns  []string
+	InitialDelay              time.Duration
+	PollFrequency             time.Duration
+	MissingRequiredRetryCount int
+	TargetSHA                 string
 }
 
 const (
-	InitialDelayDefault  = 15 * time.Second
-	PollFrequencyDefault = 30 * time.Second
+	InitialDelayDefault              = 15 * time.Second
+	PollFrequencyDefault             = 30 * time.Second
+	MissingRequiredRetryCountDefault = 2
 )
 
 func ConfigFromInputs(action *githubactions.Action) (*Config, error) {
 	action.Infof("Reading Config From Inputs")
 	c := Config{
-		InitialDelay:  InitialDelayDefault,
-		PollFrequency: PollFrequencyDefault,
+		InitialDelay:              InitialDelayDefault,
+		PollFrequency:             PollFrequencyDefault,
+		MissingRequiredRetryCount: MissingRequiredRetryCountDefault,
 	}
 	requiredWorkflowPatterns := action.GetInput(inputs.RequiredWorkflowPatterns)
 	if requiredWorkflowPatterns != "" {
@@ -51,7 +54,15 @@ func ConfigFromInputs(action *githubactions.Action) (*Config, error) {
 			c.PollFrequency = time.Duration(pfs) * time.Second
 		}
 	}
-	
+
+	if missingRequiredRetryCount := action.GetInput(inputs.MissingRequiredRetryCount); missingRequiredRetryCount != "" {
+		if mrrc, err := strconv.Atoi(missingRequiredRetryCount); err != nil {
+			action.Warningf("Failed to parse MissingRequiredRetryCount: %s", err)
+		} else {
+			c.MissingRequiredRetryCount = mrrc
+		}
+	}
+
 	var err error
 	c.TargetSHA, err = defaultTargetSHA(action)
 	if err != nil {

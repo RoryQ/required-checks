@@ -13,10 +13,12 @@ inputs:
     description: Initial delay before polling.
   poll_frequency_seconds:
     description: Polling frequency.
+  missing_required_retry_count:
+    description: Number of times to retry if a required check is missing, for cases where the workflow is still being created.
   version:
     description: Release version of action to run.
 runs:
-  using: node16
+  using: node20
   main: index.js
 branding:
   icon: "check-square"
