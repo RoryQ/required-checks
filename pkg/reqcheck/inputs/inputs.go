@@ -15,6 +15,9 @@ const (
 
 	TargetSHA = "TARGET_SHA"
 
+	// MissingRequiredRetryCount is the number of times to retry if a required check is missing, for cases where the workflow is still being created.
+	MissingRequiredRetryCount = "MISSING_REQUIRED_RETRY_COUNT"
+
 	// Version release version of the action to run
-	Version = "version"
+	Version = "VERSION"
 )

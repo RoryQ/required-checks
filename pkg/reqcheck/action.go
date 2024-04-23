@@ -4,13 +4,13 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/google/go-github/v61/github"
 	"github.com/samber/lo"
 	"github.com/sethvargo/go-githubactions"
-	"slices"
 
 	"github.com/roryq/required-checks/pkg/pullrequest"
 )
@@ -34,6 +34,7 @@ func Run(ctx context.Context, cfg *Config, action *githubactions.Action, gh *git
 		return err
 	}
 
+	missingRequiredCount := 0
 	foundSelf := false
 	for {
 		checks, err := pr.ListChecks(ctx, cfg.TargetSHA, nil)
@@ -60,12 +61,17 @@ func Run(ctx context.Context, cfg *Config, action *githubactions.Action, gh *git
 			}
 		}
 
+		// If required is not found, retry in case the workflow is still being created then fail as there will not be a successful check.
 		requiredNotFound := lo.OmitByValues(requiredSet, []bool{true})
 		if len(requiredNotFound) > 0 {
-			return fmt.Errorf("required checks not found: %q", lo.Keys(requiredNotFound))
+			missingRequiredCount++
+			if missingRequiredCount > cfg.MissingRequiredRetryCount {
+				return fmt.Errorf("required checks not found: %q", lo.Keys(requiredNotFound))
+			}
+			action.Infof("Required checks not found: %q, continuing another %d times before failing", lo.Keys(requiredNotFound), cfg.MissingRequiredRetryCount-missingRequiredCount)
 		}
 
-		// any failed
+		// Find failed conclusions, and fail early if there is.
 		failed := lo.Filter(toCheck, func(item *github.CheckRun, _ int) bool {
 			return slices.Contains(failedConclusions, item.GetConclusion())
 		})
@@ -74,16 +80,18 @@ func Run(ctx context.Context, cfg *Config, action *githubactions.Action, gh *git
 			return fmt.Errorf("required checks failed: %q", checkNames(failed))
 		}
 
-		// not completed
+		// Wait until all statuses are completed.
 		notCompleted := lo.Filter(toCheck, func(item *github.CheckRun, _ int) bool {
 			return item.GetStatus() != StatusCompleted
 		})
 
+		// Break out of the loop if all checks are completed.
 		if len(notCompleted) == 0 {
 			action.Infof("All checks completed")
 			break
 		}
 
+		// sleep and try again.
 		action.Infof("Not all checks completed: %q", checkNames(notCompleted))
 		action.Infof("Waiting %s before next check", cfg.PollFrequency)
 		time.Sleep(cfg.PollFrequency)
