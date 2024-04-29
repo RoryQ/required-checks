@@ -3,10 +3,11 @@ description: Define required checks inside your repository.
 author: "Rory Quinn"
 
 inputs:
+  required_workflow_patterns:
+    description: List of regex patterns to check.
+    required: true
   token:
     description: GitHub token
-  required_workflow_patterns:
-    description: List of patterns to check.
   target_sha:
     description: Target SHA.
   initial_delay_seconds:
@@ -21,5 +22,5 @@ runs:
   using: node20
   main: index.js
 branding:
-  icon: "check-square"
-  color: "green"
+  icon: "shield"
+  color: "blue"
