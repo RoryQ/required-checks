@@ -23,7 +23,7 @@ jobs:
       uses: roryq/required-checks@master
       with:
         # required-workflow-patterns is a yaml list of regex patterns to check
-        required-workflow-patterns: |
+        required_workflow_patterns: |
           # will match any check with tests in its name
           - tests
           # will match either markdown-lint or yaml-lint
@@ -32,13 +32,13 @@ jobs:
         # GitHub token
         token: ${{ secrets.GITHUB_TOKEN }}
         # number of seconds to wait before starting the first poll
-        initial-delay-seconds: 15
+        initial_delay_seconds: 15
         # number of seconds to wait between polls
-        poll-frequency-seconds: 30
+        poll_frequency_seconds: 30
         # number of times to retry if a required check is missing. 
         # This is useful in cases where the workflow is still being created.
-        missing-required-retry-count: 3
+        missing_required_retry_count: 3
         # target sha that the checks have been run against. Defaults to ${{ github.event.pull_request.head.sha || github.sha }}
-        target-sha: ${{ github.event.pull_request.head.sha || github.sha }}
+        target_sha: ${{ github.event.pull_request.head.sha || github.sha }}
 
 ```
