@@ -2,7 +2,9 @@ package reqcheck
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"regexp"
 	"slices"
 	"strings"
@@ -39,6 +41,12 @@ func Run(ctx context.Context, cfg *Config, action *githubactions.Action, gh *git
 	for {
 		checks, err := pr.ListChecks(ctx, cfg.TargetSHA, nil)
 		if err != nil {
+			// Retry if we get an unexpected EOF error, which could be due to proxies.
+			if errors.Is(err, io.ErrUnexpectedEOF) {
+				action.Infof("Unexpected EOF, retrying...")
+				time.Sleep(cfg.PollFrequency)
+				continue
+			}
 			return err
 		}
 		action.Infof("Got %d checks", len(checks))
