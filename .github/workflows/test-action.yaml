@@ -10,9 +10,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    - uses: actions/setup-go@v5
+    - name: Install Go
+      uses: actions/setup-go@v5
       with:
-        go-version: stable
+        go-version-file: go.mod
     - run: go run main.go
       env:
         INPUT_REQUIRED_WORKFLOW_PATTERNS: |

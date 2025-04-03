@@ -1,5 +1,4 @@
-# This is an example .goreleaser.yml file with some sensible defaults.
-# Make sure to check the documentation at https://goreleaser.com
+version: 2
 before:
   hooks:
     # You may remove this if you don't use go modules.
@@ -13,7 +12,7 @@ builds:
       - darwin
     ldflags: "-s -w"
 archives:
-  - id: foo
+  - id: assets
     name_template: >-
       {{- .ProjectName }}_
       {{- .Version }}_
@@ -25,7 +24,7 @@ archives:
 checksum:
   name_template: 'checksums.txt'
 snapshot:
-  name_template: "{{ incpatch .Version }}-next"
+  version_template: "{{ incpatch .Version }}-next"
 changelog:
   sort: asc
   filters:
