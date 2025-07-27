@@ -5,10 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
+	"github.com/bmatcuk/doublestar/v4"
 	"github.com/google/go-github/v61/github"
 	"github.com/samber/lo"
 	"github.com/sethvargo/go-githubactions"
@@ -23,14 +26,11 @@ func Run(ctx context.Context, cfg *Config, action *githubactions.Action, gh *git
 		return err
 	}
 
-	return RunWithClient(ctx, cfg, action, pr)
+	return run(ctx, cfg, action, pr)
 }
 
-// ListChecksFunc is a function type for listing check runs
-type ListChecksFunc func(ctx context.Context, sha string, options *github.ListCheckRunsOptions) ([]*github.CheckRun, error)
-
-// RunWithChecksFunc is the same as Run but takes a function for listing checks, useful for testing
-func RunWithChecksFunc(ctx context.Context, cfg *Config, action *githubactions.Action, listChecks ListChecksFunc) error {
+// run is the same as Run but takes a function for listing checks, useful for testing
+func run(ctx context.Context, cfg *Config, action *githubactions.Action, pr PRClient) error {
 	action.Infof("Waiting %s before initial check", cfg.InitialDelay)
 	time.Sleep(cfg.InitialDelay)
 
@@ -39,7 +39,14 @@ func RunWithChecksFunc(ctx context.Context, cfg *Config, action *githubactions.A
 		return err
 	}
 
-	rules, err := NewRuleset(cfg.RequiredWorkflowPatterns)
+	workflowPatterns := cfg.RequiredWorkflowPatterns
+	pathWorkflowPatterns, err := getConditionalPathPatterns(ctx, cfg, action, pr)
+	if err != nil {
+		return err
+	}
+
+	workflowPatterns = lo.Uniq(append(workflowPatterns, pathWorkflowPatterns...))
+	rules, err := NewRuleset(workflowPatterns)
 	if err != nil {
 		return err
 	}
@@ -47,7 +54,7 @@ func RunWithChecksFunc(ctx context.Context, cfg *Config, action *githubactions.A
 	missingRequiredCount := 0
 	foundSelf := false
 	for {
-		checks, err := listChecks(ctx, cfg.TargetSHA, nil)
+		checks, err := pr.ListChecks(ctx, cfg.TargetSHA, nil)
 		if err != nil {
 			// Retry if we get an unexpected EOF error, which could be due to proxies.
 			if errors.Is(err, io.ErrUnexpectedEOF) {
@@ -60,7 +67,7 @@ func RunWithChecksFunc(ctx context.Context, cfg *Config, action *githubactions.A
 		action.Infof("Got %d checks", len(checks))
 		action.Infof("Checks: %q", checkNames(checks))
 
-		requiredSet := lo.SliceToMap(cfg.RequiredWorkflowPatterns, func(item string) (string, bool) { return item, false })
+		requiredSet := lo.SliceToMap(workflowPatterns, func(item string) (string, bool) { return item, false })
 		toCheck := []*github.CheckRun{}
 		for _, c := range checks {
 			if strings.Contains(c.GetDetailsURL(), fmt.Sprintf("runs/%d/job", ghCtx.RunID)) {
@@ -82,7 +89,7 @@ func RunWithChecksFunc(ctx context.Context, cfg *Config, action *githubactions.A
 		if len(requiredNotFound) > 0 {
 			missingRequiredCount++
 			if missingRequiredCount > cfg.MissingRequiredRetryCount {
-				return fmt.Errorf("required checks not found: %q", lo.Keys(requiredNotFound))
+				return fmt.Errorf("required checks not found: %q", sortStrings(lo.Keys(requiredNotFound)))
 			}
 			action.Infof("Required checks not found: %q, continuing another %d times before failing", lo.Keys(requiredNotFound), cfg.MissingRequiredRetryCount-missingRequiredCount)
 		}
@@ -115,9 +122,30 @@ func RunWithChecksFunc(ctx context.Context, cfg *Config, action *githubactions.A
 	return nil
 }
 
-// RunWithClient is the same as Run but takes a pullrequest.Client directly, useful for testing
-func RunWithClient(ctx context.Context, cfg *Config, action *githubactions.Action, pr pullrequest.Client) error {
-	return RunWithChecksFunc(ctx, cfg, action, pr.ListChecks)
+func getConditionalPathPatterns(ctx context.Context, cfg *Config, action *githubactions.Action, pr PRClient) ([]string, error) {
+	if len(cfg.ConditionalPathWorkflowPatterns) == 0 {
+		return nil, nil
+	}
+
+	fileNames, err := listPullRequestFiles(ctx, pr)
+	if err != nil {
+		return nil, err
+	}
+	matched := lo.Filter(lo.Keys(cfg.ConditionalPathWorkflowPatterns), func(pathGlob string, _ int) bool {
+		for _, name := range fileNames {
+			if matched, _ := doublestar.Match(pathGlob, name); matched {
+				action.Infof("Matched path glob [%s] with file: %s", pathGlob, name)
+				return true
+			}
+		}
+		return false
+	})
+	return lo.Flatten(lo.Values(lo.PickByKeys(cfg.ConditionalPathWorkflowPatterns, matched))), nil
+}
+
+type PRClient interface {
+	ListChecks(ctx context.Context, sha string, options *github.ListCheckRunsOptions) ([]*github.CheckRun, error)
+	ListFiles(ctx context.Context, options *github.ListOptions) ([]*github.CommitFile, error)
 }
 
 func checkNames(checks []*github.CheckRun) []string {
@@ -126,6 +154,28 @@ func checkNames(checks []*github.CheckRun) []string {
 		names = append(names, c.GetName())
 	}
 	return names
+}
+
+func listPullRequestFiles(ctx context.Context, pr PRClient) ([]string, error) {
+	files, err := pr.ListFiles(ctx, nil)
+	if isNotFoundError(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	fileNames := lo.Map(files, func(item *github.CommitFile, _ int) string { return item.GetFilename() })
+	return fileNames, nil
+}
+
+func isNotFoundError(err error) bool {
+	ghe := new(github.ErrorResponse)
+	if errors.As(err, &ghe) {
+		if ghe.Response.StatusCode == http.StatusNotFound {
+			return true
+		}
+	}
+	return false
 }
 
 // Conclusion: action_required, cancelled, failure, neutral, success, skipped, stale, timed_out
@@ -173,4 +223,9 @@ func (r Ruleset) First(test string) *regexp.Regexp {
 		}
 	}
 	return nil
+}
+
+func sortStrings(slice []string) []string {
+	sort.Strings(slice)
+	return slice
 }

@@ -2,6 +2,7 @@ package pullrequest
 
 import (
 	"context"
+	"errors"
 	"strings"
 
 	"github.com/google/go-github/v61/github"
@@ -9,10 +10,11 @@ import (
 )
 
 type Client struct {
-	Owner string
-	Repo  string
-	ctx   *githubactions.GitHubContext
-	gh    *github.Client
+	Owner  string
+	Repo   string
+	Number int
+	ctx    *githubactions.GitHubContext
+	gh     *github.Client
 }
 
 func (pr Client) ListChecks(ctx context.Context, sha string, options *github.ListCheckRunsOptions) ([]*github.CheckRun, error) {
@@ -38,6 +40,27 @@ func (pr Client) ListChecks(ctx context.Context, sha string, options *github.Lis
 	return checks, nil
 }
 
+func (pr Client) ListFiles(ctx context.Context, options *github.ListOptions) ([]*github.CommitFile, error) {
+	var files []*github.CommitFile
+	for {
+		filesPage, resp, err := pr.gh.PullRequests.ListFiles(ctx, pr.Owner, pr.Repo, pr.Number, options)
+		if err != nil {
+			return nil, err
+		}
+		files = append(files, filesPage...)
+		if resp.NextPage == 0 {
+			break
+		}
+		if options == nil {
+			options = &github.ListOptions{
+				Page: resp.NextPage,
+			}
+		}
+		options.Page = resp.NextPage
+	}
+	return files, nil
+}
+
 func NewClient(action *githubactions.Action, gh *github.Client) (Client, error) {
 	ctx, err := action.Context()
 	if err != nil {
@@ -45,12 +68,17 @@ func NewClient(action *githubactions.Action, gh *github.Client) (Client, error) 
 	}
 
 	owner, repo := getRepo(action, ctx.Event)
+	number, err := getPRNumber(ctx.Event)
+	if err != nil {
+		return Client{}, err
+	}
 	action.Debugf("action context: %s %s", owner, repo)
 	return Client{
-		Owner: owner,
-		Repo:  repo,
-		ctx:   ctx,
-		gh:    gh,
+		Owner:  owner,
+		Repo:   repo,
+		Number: number,
+		ctx:    ctx,
+		gh:     gh,
 	}, nil
 }
 
@@ -68,4 +96,25 @@ func getRepo(action *githubactions.Action, event map[string]any) (string, string
 		return splitRepo(fullName.(string))
 	}
 	return "", ""
+}
+
+func getPRNumber(event map[string]any) (int, error) {
+	getNumber := func(eventName string) (int, error) {
+		eventField, ok := event[eventName]
+		if !ok {
+			return 0, errors.New("incorrect event type")
+		}
+
+		number, ok := eventField.(map[string]any)["number"]
+		if !ok {
+			return 0, errors.New("cannot get pull_request number")
+		}
+		return int(number.(float64)), nil
+	}
+
+	num, err := getNumber("pull_request")
+	if err != nil {
+		return getNumber("issue")
+	}
+	return num, err
 }
