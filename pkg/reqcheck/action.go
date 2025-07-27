@@ -6,13 +6,13 @@ import (
 	"fmt"
 	"io"
 	"regexp"
-	"slices"
 	"strings"
 	"time"
 
 	"github.com/google/go-github/v61/github"
 	"github.com/samber/lo"
 	"github.com/sethvargo/go-githubactions"
+	"slices"
 
 	"github.com/roryq/required-checks/pkg/pullrequest"
 )
@@ -23,6 +23,14 @@ func Run(ctx context.Context, cfg *Config, action *githubactions.Action, gh *git
 		return err
 	}
 
+	return RunWithClient(ctx, cfg, action, pr)
+}
+
+// ListChecksFunc is a function type for listing check runs
+type ListChecksFunc func(ctx context.Context, sha string, options *github.ListCheckRunsOptions) ([]*github.CheckRun, error)
+
+// RunWithChecksFunc is the same as Run but takes a function for listing checks, useful for testing
+func RunWithChecksFunc(ctx context.Context, cfg *Config, action *githubactions.Action, listChecks ListChecksFunc) error {
 	action.Infof("Waiting %s before initial check", cfg.InitialDelay)
 	time.Sleep(cfg.InitialDelay)
 
@@ -39,7 +47,7 @@ func Run(ctx context.Context, cfg *Config, action *githubactions.Action, gh *git
 	missingRequiredCount := 0
 	foundSelf := false
 	for {
-		checks, err := pr.ListChecks(ctx, cfg.TargetSHA, nil)
+		checks, err := listChecks(ctx, cfg.TargetSHA, nil)
 		if err != nil {
 			// Retry if we get an unexpected EOF error, which could be due to proxies.
 			if errors.Is(err, io.ErrUnexpectedEOF) {
@@ -105,6 +113,11 @@ func Run(ctx context.Context, cfg *Config, action *githubactions.Action, gh *git
 		time.Sleep(cfg.PollFrequency)
 	}
 	return nil
+}
+
+// RunWithClient is the same as Run but takes a pullrequest.Client directly, useful for testing
+func RunWithClient(ctx context.Context, cfg *Config, action *githubactions.Action, pr pullrequest.Client) error {
+	return RunWithChecksFunc(ctx, cfg, action, pr.ListChecks)
 }
 
 func checkNames(checks []*github.CheckRun) []string {
