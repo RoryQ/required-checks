@@ -60,8 +60,12 @@ func TestConfigFromInputs(t *testing.T) {
 			AssertError:  assert.NoError,
 		},
 		"ValidConditionalPathWorkflowPatterns": {
-			Input:        inputs.ConditionalPathWorkflowPatterns,
-			Value:        "path/to/file*:\n  - workflow1\n  - workflow2\nanother/path/**:\n  - workflow3",
+			Input: inputs.ConditionalPathWorkflowPatterns,
+			Value: `path/to/file*:
+  - workflow1
+  - workflow2
+another/path/**:
+  - workflow3`,
 			SelectConfig: func(config Config) any { return config.ConditionalPathWorkflowPatterns },
 			Expected:     map[string][]string{"path/to/file*": {"workflow1", "workflow2"}, "another/path/**": {"workflow3"}},
 			AssertError:  assert.NoError,
