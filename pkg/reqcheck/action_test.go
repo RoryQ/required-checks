@@ -9,6 +9,7 @@ import (
 )
 
 func TestRun(t *testing.T) {
+
 }
 
 func setupAction(input string) (*githubactions.Action, *bytes.Buffer) {

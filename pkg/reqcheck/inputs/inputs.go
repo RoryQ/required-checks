@@ -7,6 +7,9 @@ const (
 	// RequiredWorkflowPatterns is a yaml list of patterns to check
 	RequiredWorkflowPatterns = "REQUIRED_WORKFLOW_PATTERNS"
 
+	// ConditionalPathWorkflowPatterns path globs and patterns defining optional workflows to check for certain file changes.
+	ConditionalPathWorkflowPatterns = "CONDITIONAL_PATH_WORKFLOW_PATTERNS"
+
 	// InitialDelaySeconds Initial delay before polling
 	InitialDelaySeconds = "INITIAL_DELAY_SECONDS"
 

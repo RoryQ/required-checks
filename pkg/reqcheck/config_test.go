@@ -41,27 +41,102 @@ func unsetInput(t *testing.T, input string) {
 	t.Setenv("INPUT_"+input, "")
 }
 
-func TestConfigFromInputs_ValidInputs(t *testing.T) {
-	// Setup
-	setInput(t, inputs.RequiredWorkflowPatterns, `- pattern1
-- pattern2`)
-	setInput(t, inputs.InitialDelaySeconds, "30")
-	setInput(t, inputs.PollFrequencySeconds, "60")
-	setInput(t, inputs.MissingRequiredRetryCount, "5")
-	setInput(t, inputs.TargetSHA, "custom-sha")
+func TestConfigFromInputs(t *testing.T) {
+	// Set up minimal environment for defaultTargetSHA
+	t.Setenv("GITHUB_SHA", "default-sha")
+
+	tests := map[string]struct {
+		Input        string
+		Value        string
+		SelectConfig func(Config) any
+		Expected     any
+		AssertError  assert.ErrorAssertionFunc
+	}{
+		"ValidRequiredWorkflowPattern": {
+			Input:        inputs.RequiredWorkflowPatterns,
+			Value:        "- pattern1\n- pattern2",
+			SelectConfig: func(config Config) any { return config.RequiredWorkflowPatterns },
+			Expected:     []string{"pattern1", "pattern2"},
+			AssertError:  assert.NoError,
+		},
+		"ValidConditionalPathWorkflowPatterns": {
+			Input:        inputs.ConditionalPathWorkflowPatterns,
+			Value:        "path/to/file*:\n  - workflow1\n  - workflow2\nanother/path/**:\n  - workflow3",
+			SelectConfig: func(config Config) any { return config.ConditionalPathWorkflowPatterns },
+			Expected:     map[string][]string{"path/to/file*": {"workflow1", "workflow2"}, "another/path/**": {"workflow3"}},
+			AssertError:  assert.NoError,
+		},
+		"InvalidGlobConditionalPathWorkflowPatterns": {
+			Input:       inputs.ConditionalPathWorkflowPatterns,
+			Value:       "[^abc:\n  - workflow1\n  - workflow2",
+			AssertError: assert.Error,
+		},
+		"ValidInitialDelaySeconds": {
+			Input:        inputs.InitialDelaySeconds,
+			Value:        "30",
+			SelectConfig: func(config Config) any { return config.InitialDelay },
+			Expected:     30 * time.Second,
+			AssertError:  assert.NoError,
+		},
+		"InvalidInitialDelaySeconds": {
+			Input:        inputs.InitialDelaySeconds,
+			Value:        "not-a-number",
+			SelectConfig: func(config Config) any { return config.InitialDelay },
+			Expected:     InitialDelayDefault,
+			AssertError:  assert.NoError, // Invalid numbers should not cause errors, just warnings
+		},
+		"ValidPollFrequencySeconds": {
+			Input:        inputs.PollFrequencySeconds,
+			Value:        "60",
+			SelectConfig: func(config Config) any { return config.PollFrequency },
+			Expected:     60 * time.Second,
+			AssertError:  assert.NoError,
+		},
+		"InvalidPollFrequencySeconds": {
+			Input:        inputs.PollFrequencySeconds,
+			Value:        "not-a-number",
+			SelectConfig: func(config Config) any { return config.PollFrequency },
+			Expected:     PollFrequencyDefault,
+			AssertError:  assert.NoError, // Invalid numbers should not cause errors, just warnings
+		},
+		"ValidMissingRequiredRetryCount": {
+			Input:        inputs.MissingRequiredRetryCount,
+			Value:        "5",
+			SelectConfig: func(config Config) any { return config.MissingRequiredRetryCount },
+			Expected:     5,
+			AssertError:  assert.NoError,
+		},
+		"InvalidMissingRequiredRetryCount": {
+			Input:        inputs.MissingRequiredRetryCount,
+			Value:        "not-a-number",
+			SelectConfig: func(config Config) any { return config.MissingRequiredRetryCount },
+			Expected:     MissingRequiredRetryCountDefault,
+			AssertError:  assert.NoError, // Invalid numbers should not cause errors, just warnings
+		},
+		"ValidTargetSHA": {
+			Input:        inputs.TargetSHA,
+			Value:        "custom-sha",
+			SelectConfig: func(config Config) any { return config.TargetSHA },
+			Expected:     "custom-sha",
+			AssertError:  assert.NoError,
+		},
+	}
 
 	action := githubactions.New()
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			// Set the test input
+			setInput(t, tt.Input, tt.Value)
 
-	// Test
-	config, err := ConfigFromInputs(action)
-
-	// Assert
-	require.NoError(t, err)
-	assert.Equal(t, []string{"pattern1", "pattern2"}, config.RequiredWorkflowPatterns)
-	assert.Equal(t, 30*time.Second, config.InitialDelay)
-	assert.Equal(t, 60*time.Second, config.PollFrequency)
-	assert.Equal(t, 5, config.MissingRequiredRetryCount)
-	assert.Equal(t, "custom-sha", config.TargetSHA)
+			config, err := ConfigFromInputs(action)
+			tt.AssertError(t, err)
+			if err != nil {
+				return
+			}
+			require.NotNil(t, config)
+			assert.Equal(t, tt.Expected, tt.SelectConfig(*config))
+		})
+	}
 }
 
 func TestConfigFromInputs_InvalidYAML(t *testing.T) {
@@ -77,65 +152,6 @@ func TestConfigFromInputs_InvalidYAML(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "yaml")
 	assert.Nil(t, config)
-}
-
-func TestConfigFromInputs_InvalidNumbers(t *testing.T) {
-	testCases := []struct {
-		name      string
-		inputName string
-		inputVal  string
-	}{
-		{
-			name:      "Invalid InitialDelaySeconds",
-			inputName: inputs.InitialDelaySeconds,
-			inputVal:  "not-a-number",
-		},
-		{
-			name:      "Invalid PollFrequencySeconds",
-			inputName: inputs.PollFrequencySeconds,
-			inputVal:  "not-a-number",
-		},
-		{
-			name:      "Invalid MissingRequiredRetryCount",
-			inputName: inputs.MissingRequiredRetryCount,
-			inputVal:  "not-a-number",
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			// Setup
-			// Clear previous environment variables
-			unsetInput(t, inputs.InitialDelaySeconds)
-			unsetInput(t, inputs.PollFrequencySeconds)
-			unsetInput(t, inputs.MissingRequiredRetryCount)
-
-			// Set the test input
-			setInput(t, tc.inputName, tc.inputVal)
-
-			// Set up minimal environment for defaultTargetSHA
-			t.Setenv("GITHUB_SHA", "default-sha")
-
-			action := githubactions.New()
-
-			// Test
-			config, err := ConfigFromInputs(action)
-
-			// Assert
-			require.NoError(t, err) // Invalid numbers should not cause errors, just warnings
-			assert.NotNil(t, config)
-
-			// Check that default values are used for invalid inputs
-			switch tc.inputName {
-			case inputs.InitialDelaySeconds:
-				assert.Equal(t, InitialDelayDefault, config.InitialDelay)
-			case inputs.PollFrequencySeconds:
-				assert.Equal(t, PollFrequencyDefault, config.PollFrequency)
-			case inputs.MissingRequiredRetryCount:
-				assert.Equal(t, MissingRequiredRetryCountDefault, config.MissingRequiredRetryCount)
-			}
-		})
-	}
 }
 
 func TestDefaultTargetSHA_FromInput(t *testing.T) {
