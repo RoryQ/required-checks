@@ -135,6 +135,7 @@ func getConditionalPathPatterns(ctx context.Context, cfg *Config, action *github
 		for _, name := range fileNames {
 			if matched, _ := doublestar.Match(pathGlob, name); matched {
 				action.Infof("Matched path glob [%s] with file: %s", pathGlob, name)
+				action.Infof("Adding checks to required: %q", cfg.ConditionalPathWorkflowPatterns[pathGlob])
 				return true
 			}
 		}

@@ -18,6 +18,8 @@ jobs:
       env:
         INPUT_REQUIRED_WORKFLOW_PATTERNS: |
           - tests
+        INPUT_CONDITIONAL_PATH_WORKFLOW_PATTERNS: |
+          "**/*.go": [ "unit-tests" ]
         INPUT_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   run-master:
