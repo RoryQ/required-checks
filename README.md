@@ -33,9 +33,9 @@ jobs:
         # A yaml dictionary of path globs and regex patterns. If a commit file matches a path glob then the corresponding
         # regex patterns will be added to the list of workflows to check.
         conditional_path_workflow_patterns: |
-          "*.go": 
+          "**/*.go": 
             - "go-unit-tests"
-          "*.sql":
+          "**/*.sql":
             - "validate-migrations"
           
         # GitHub token
