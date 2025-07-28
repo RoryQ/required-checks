@@ -34,7 +34,10 @@ jobs:
             - tests
             # will match either markdown-lint or yaml-lint
             - (markdown-lint|yaml-lint)
-
+          # required lists based on conditional path globs
+          conditional_path_workflow_patterns: |
+            "**/*.go":
+              - unit-tests
           # GitHub token
           token: ${{ secrets.GITHUB_TOKEN }}
           # number of seconds to wait before starting the first poll

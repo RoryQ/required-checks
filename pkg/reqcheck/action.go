@@ -8,11 +8,12 @@ import (
 	"net/http"
 	"regexp"
 	"sort"
-	"strings"
 	"time"
 
+	"cmp"
 	"github.com/bmatcuk/doublestar/v4"
 	"github.com/google/go-github/v61/github"
+	"github.com/niemeyer/pretty"
 	"github.com/samber/lo"
 	"github.com/sethvargo/go-githubactions"
 	"slices"
@@ -64,13 +65,15 @@ func run(ctx context.Context, cfg *Config, action *githubactions.Action, pr PRCl
 			}
 			return err
 		}
+		slices.SortFunc(checks, func(a, b *github.CheckRun) int { return cmp.Compare(a.GetName(), b.GetName()) })
 		action.Infof("Got %d checks", len(checks))
 		action.Infof("Checks: %q", checkNames(checks))
 
 		requiredSet := lo.SliceToMap(workflowPatterns, func(item string) (string, bool) { return item, false })
 		toCheck := []*github.CheckRun{}
 		for _, c := range checks {
-			if strings.Contains(c.GetDetailsURL(), fmt.Sprintf("runs/%d/job", ghCtx.RunID)) {
+			pretty.Println(ghCtx.Job, ghCtx.RunID, ghCtx.RunNumber, c.GetID())
+			if c.GetID() == ghCtx.RunID {
 				// skip waiting for this check if this is named the same as another check
 				if !foundSelf {
 					action.Infof("Skipping check: %q", c.GetName())
@@ -84,6 +87,15 @@ func run(ctx context.Context, cfg *Config, action *githubactions.Action, pr PRCl
 			}
 		}
 
+		// Find failed conclusions, and fail early if there is.
+		failed := lo.Filter(toCheck, func(item *github.CheckRun, _ int) bool {
+			return slices.Contains(failedConclusions, item.GetConclusion())
+		})
+
+		if len(failed) > 0 {
+			return fmt.Errorf("required checks failed: %q", checkNames(failed))
+		}
+
 		// If required is not found, retry in case the workflow is still being created then fail as there will not be a successful check.
 		requiredNotFound := lo.OmitByValues(requiredSet, []bool{true})
 		if len(requiredNotFound) > 0 {
@@ -92,15 +104,6 @@ func run(ctx context.Context, cfg *Config, action *githubactions.Action, pr PRCl
 				return fmt.Errorf("required checks not found: %q", sortStrings(lo.Keys(requiredNotFound)))
 			}
 			action.Infof("Required checks not found: %q, continuing another %d times before failing", lo.Keys(requiredNotFound), cfg.MissingRequiredRetryCount-missingRequiredCount)
-		}
-
-		// Find failed conclusions, and fail early if there is.
-		failed := lo.Filter(toCheck, func(item *github.CheckRun, _ int) bool {
-			return slices.Contains(failedConclusions, item.GetConclusion())
-		})
-
-		if len(failed) > 0 {
-			return fmt.Errorf("required checks failed: %q", checkNames(failed))
 		}
 
 		// Wait until all statuses are completed.

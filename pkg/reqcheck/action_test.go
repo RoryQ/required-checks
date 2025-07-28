@@ -25,6 +25,7 @@ func TestRun(t *testing.T) {
 		assertError         assert.ErrorAssertionFunc
 		expectedOutputLines []string
 		progressiveChecks   bool
+		testRetryMissing    bool
 	}{
 		"all required checks pass": {
 			config: &Config{
@@ -219,9 +220,49 @@ func TestRun(t *testing.T) {
 			expectedOutputLines: []string{
 				"Matched path glob [main.go] with file: main.go",
 				`Got 2 checks`,
-				`Checks: ["required-check" "go unit tests"]`,
+				`Checks: ["go unit tests" "required-check"]`,
 				`All checks completed`,
 			},
+		},
+		"required check not found retries three times before failing": {
+			config: &Config{
+				RequiredWorkflowPatterns:  []string{"required-check-1", "missing-check"},
+				MissingRequiredRetryCount: 3,
+				TargetSHA:                 "test-sha",
+			},
+			checkRuns: []*github.CheckRun{
+				{
+					Name:   github.String("required-check-1"),
+					Status: github.String(StatusInProgress),
+				},
+				{
+					Name:   github.String("required-check-1"),
+					Status: github.String(StatusInProgress),
+				},
+				{
+					Name:   github.String("required-check-1"),
+					Status: github.String(StatusInProgress),
+				},
+				{
+					Name:       github.String("required-check-1"),
+					Status:     github.String(StatusCompleted),
+					Conclusion: github.String(ConclusionSuccess),
+				},
+			},
+			assertError: xassert.ErrorContains(`required checks not found: ["missing-check"]`),
+			expectedOutputLines: []string{
+				"Waiting 1ms before initial check",
+				"Got 1 checks",
+				`Checks: ["required-check-1"]`,
+				`Required checks not found: ["missing-check"], continuing another 2 times before failing`,
+				`Not all checks completed: ["required-check-1"]`,
+				`Required checks not found: ["missing-check"], continuing another 1 times before failing`,
+				`Not all checks completed: ["required-check-1"]`,
+				`Required checks not found: ["missing-check"], continuing another 0 times before failing`,
+				`Not all checks completed: ["required-check-1"]`,
+			},
+			progressiveChecks: true,
+			testRetryMissing:  true,
 		},
 	}
 
@@ -288,6 +329,8 @@ func setupMockPRClient(checkRuns []*github.CheckRun, listChecksError error, prog
 				runs = checkRuns
 			}
 
+			// For retry missing test, we always return the same check runs
+			// The test should fail after the retry count is exceeded
 			callCount++
 			return runs, nil
 		},

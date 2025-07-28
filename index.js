@@ -2,6 +2,7 @@ const cp = require('child_process')
 const os = require('os')
 const process = require('process')
 
+const DefaultVersionFallback = "v1.2.0"
 const OwnerRepo = "RoryQ/required-checks"
 const BinaryName = "required-checks"
 
@@ -54,10 +55,10 @@ function determineVersion() {
     }
     const result = cp.execSync(`curl --silent --location "https://api.github.com/repos/${OwnerRepo}/releases/latest" | jq  -r ".. .tag_name? // empty"`)
     let ver = result.toString().trim();
-    // fallback to v1.0.0
+    // fallback to the default version
     if (ver === "") {
-        logDebug("No version found, falling back to v1.0.0")
-        ver = "v1.0.0"
+        logDebug("No version found, falling back to "+DefaultVersionFallback)
+        ver = DefaultVersionFallback
     }
     return ver
 }
@@ -71,7 +72,8 @@ function main() {
         process.exit(status)
     }
 
-    console.log(`░▒▓███████▓▒░░▒▓████████▓▒░▒▓██████▓▒░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓███████▓▒░░▒▓████████▓▒░▒▓███████▓▒░  
+    console.log(
+`░▒▓███████▓▒░░▒▓████████▓▒░▒▓██████▓▒░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓███████▓▒░░▒▓████████▓▒░▒▓███████▓▒░  
 ░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░     ░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░      ░▒▓█▓▒░░▒▓█▓▒░ 
 ░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░     ░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░      ░▒▓█▓▒░░▒▓█▓▒░ 
 ░▒▓███████▓▒░░▒▓██████▓▒░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓███████▓▒░░▒▓██████▓▒░ ░▒▓█▓▒░░▒▓█▓▒░ 
