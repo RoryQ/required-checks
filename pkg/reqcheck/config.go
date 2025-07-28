@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/bmatcuk/doublestar/v4"
 	"github.com/niemeyer/pretty"
 	"github.com/sethvargo/go-githubactions"
 	"gopkg.in/yaml.v3"
@@ -12,11 +13,12 @@ import (
 )
 
 type Config struct {
-	RequiredWorkflowPatterns  []string
-	InitialDelay              time.Duration
-	PollFrequency             time.Duration
-	MissingRequiredRetryCount int
-	TargetSHA                 string
+	RequiredWorkflowPatterns        []string
+	ConditionalPathWorkflowPatterns map[string][]string
+	InitialDelay                    time.Duration
+	PollFrequency                   time.Duration
+	MissingRequiredRetryCount       int
+	TargetSHA                       string
 }
 
 const (
@@ -28,9 +30,10 @@ const (
 func ConfigFromInputs(action *githubactions.Action) (*Config, error) {
 	action.Infof("Reading Config From Inputs")
 	c := Config{
-		InitialDelay:              InitialDelayDefault,
-		PollFrequency:             PollFrequencyDefault,
-		MissingRequiredRetryCount: MissingRequiredRetryCountDefault,
+		InitialDelay:                    InitialDelayDefault,
+		PollFrequency:                   PollFrequencyDefault,
+		ConditionalPathWorkflowPatterns: map[string][]string{},
+		MissingRequiredRetryCount:       MissingRequiredRetryCountDefault,
 	}
 	requiredWorkflowPatterns := action.GetInput(inputs.RequiredWorkflowPatterns)
 	if requiredWorkflowPatterns != "" {
@@ -39,8 +42,20 @@ func ConfigFromInputs(action *githubactions.Action) (*Config, error) {
 		}
 	}
 
-	if initalDelaySeconds := action.GetInput(inputs.InitialDelaySeconds); initalDelaySeconds != "" {
-		if ids, err := strconv.Atoi(initalDelaySeconds); err != nil {
+	pathPatterns := action.GetInput(inputs.ConditionalPathWorkflowPatterns)
+	if pathPatterns != "" {
+		if err := yaml.Unmarshal([]byte(pathPatterns), &c.ConditionalPathWorkflowPatterns); err != nil {
+			return nil, err
+		}
+		for key, _ := range c.ConditionalPathWorkflowPatterns {
+			if !doublestar.ValidatePathPattern(key) {
+				action.Warningf("Invalid workflow pattern: %s", key)
+			}
+		}
+	}
+
+	if initialDelaySeconds := action.GetInput(inputs.InitialDelaySeconds); initialDelaySeconds != "" {
+		if ids, err := strconv.Atoi(initialDelaySeconds); err != nil {
 			action.Warningf("Failed to parse InitialDelaySeconds: %s", err)
 		} else {
 			c.InitialDelay = time.Duration(ids) * time.Second

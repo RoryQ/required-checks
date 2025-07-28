@@ -6,6 +6,8 @@ inputs:
   required_workflow_patterns:
     description: List of regex patterns to check.
     required: true
+  conditional_path_workflow_patterns:
+    description: Dictionary of path globs and regex patterns to check. If a commit file matches a path glob then the corresponding patterns will be checked.
   token:
     description: GitHub token
   target_sha:
