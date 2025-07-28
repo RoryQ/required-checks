@@ -11,6 +11,7 @@ import (
 	"github.com/google/go-github/v61/github"
 	"github.com/sethvargo/go-githubactions"
 	"github.com/stretchr/testify/assert"
+	"slices"
 
 	"github.com/roryq/required-checks/pkg/xassert"
 )
@@ -297,13 +298,18 @@ func setupMockPRClient(checkRuns []*github.CheckRun, listChecksError error, prog
 	}
 }
 
-func setupAction(input string) (*githubactions.Action, *bytes.Buffer) {
+func setupAction(event string, values ...string) (*githubactions.Action, *bytes.Buffer) {
 	envMap := map[string]string{
-		"GITHUB_EVENT_PATH":   fmt.Sprintf("../../test/events/%s.json", input),
+		"GITHUB_EVENT_PATH":   fmt.Sprintf("../../test/events/%s.json", event),
 		"GITHUB_STEP_SUMMARY": "/dev/null",
 		"GITHUB_REPOSITORY":   "RoryQ/required-checks",
 		"GITHUB_RUN_ID":       "12345",
 	}
+
+	for keyValue := range slices.Chunk(values, 2) {
+		envMap["INPUT_"+keyValue[0]] = keyValue[1]
+	}
+
 	getenv := func(key string) string {
 		return envMap[key]
 	}

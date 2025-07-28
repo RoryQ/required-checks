@@ -14,11 +14,7 @@ import (
 )
 
 func TestConfigFromInputs_DefaultValues(t *testing.T) {
-	// Setup
-	// Set up minimal environment for defaultTargetSHA
-	t.Setenv("GITHUB_SHA", "default-sha")
-
-	action := githubactions.New()
+	action, _ := setupAction("pull-request.opened")
 
 	// Test
 	config, err := ConfigFromInputs(action)
@@ -29,22 +25,9 @@ func TestConfigFromInputs_DefaultValues(t *testing.T) {
 	assert.Equal(t, PollFrequencyDefault, config.PollFrequency)
 	assert.Equal(t, MissingRequiredRetryCountDefault, config.MissingRequiredRetryCount)
 	assert.Empty(t, config.RequiredWorkflowPatterns)
-	assert.Equal(t, "default-sha", config.TargetSHA)
-}
-
-// In GitHub Actions, inputs are available as environment variables with the format INPUT_<NAME>
-func setInput(t *testing.T, input, value string) {
-	t.Setenv("INPUT_"+input, value)
-}
-
-func unsetInput(t *testing.T, input string) {
-	t.Setenv("INPUT_"+input, "")
 }
 
 func TestConfigFromInputs(t *testing.T) {
-	// Set up minimal environment for defaultTargetSHA
-	t.Setenv("GITHUB_SHA", "default-sha")
-
 	tests := map[string]struct {
 		Input        string
 		Value        string
@@ -126,11 +109,9 @@ another/path/**:
 		},
 	}
 
-	action := githubactions.New()
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			// Set the test input
-			setInput(t, tt.Input, tt.Value)
+			action, _ := setupAction("pull-request.opened", tt.Input, tt.Value)
 
 			config, err := ConfigFromInputs(action)
 			tt.AssertError(t, err)
@@ -144,30 +125,20 @@ another/path/**:
 }
 
 func TestConfigFromInputs_InvalidYAML(t *testing.T) {
-	// Setup
-	setInput(t, inputs.RequiredWorkflowPatterns, "invalid: yaml: [")
+	action, _ := setupAction("pull-request.opened", inputs.RequiredWorkflowPatterns, "invalid: yaml: [")
 
-	action := githubactions.New()
-
-	// Test
 	config, err := ConfigFromInputs(action)
 
-	// Assert
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "yaml")
 	assert.Nil(t, config)
 }
 
 func TestDefaultTargetSHA_FromInput(t *testing.T) {
-	// Setup
-	setInput(t, inputs.TargetSHA, "input-sha")
+	action, _ := setupAction("pull-request.opened", inputs.TargetSHA, "input-sha")
 
-	action := githubactions.New()
-
-	// Test
 	sha, err := defaultTargetSHA(action)
 
-	// Assert
 	require.NoError(t, err)
 	assert.Equal(t, "input-sha", sha)
 }

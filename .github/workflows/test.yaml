@@ -14,5 +14,4 @@ jobs:
       with:
         go-version-file: go.mod
     - run: |
-        sleep 60
         go test ./...
