@@ -92,6 +92,9 @@ func run(ctx context.Context, cfg *Config, action *githubactions.Action, pr PRCl
 				return fmt.Errorf("required checks not found: %q", sortStrings(lo.Keys(requiredNotFound)))
 			}
 			action.Infof("Required checks not found: %q, continuing another %d times before failing", lo.Keys(requiredNotFound), cfg.MissingRequiredRetryCount-missingRequiredCount)
+			action.Infof("Waiting %s before next check", cfg.PollFrequency)
+			time.Sleep(cfg.PollFrequency)
+			continue
 		}
 
 		// Find failed conclusions, and fail early if there is.
