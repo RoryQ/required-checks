@@ -1,0 +1,15 @@
+name: Example
+
+on:
+  pull_request
+
+jobs:
+  example-pass:
+    runs-on: ubuntu-latest
+    steps:
+      - run: exit 0
+
+#  example-fail:
+#    runs-on: ubuntu-latest
+#    steps:
+#      - run: exit 1

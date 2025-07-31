@@ -17,7 +17,7 @@ jobs:
     - run: go run main.go
       env:
         INPUT_REQUIRED_WORKFLOW_PATTERNS: |
-          - tests
+          - example-pass
         INPUT_CONDITIONAL_PATH_WORKFLOW_PATTERNS: |
           "**/*.go": [ "unit-tests" ]
         INPUT_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -31,9 +31,8 @@ jobs:
           # required-workflow-patterns is a yaml list of regex patterns to check
           required_workflow_patterns: |
             # will match any check with tests in its name
+            - example-pass
             - tests
-            # will match either markdown-lint or yaml-lint
-            - (markdown-lint|yaml-lint)
 
           # GitHub token
           token: ${{ secrets.GITHUB_TOKEN }}
