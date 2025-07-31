@@ -72,11 +72,11 @@ func run(ctx context.Context, cfg *Config, action *githubactions.Action, pr PRCl
 		for _, c := range checks {
 			if strings.Contains(c.GetDetailsURL(), fmt.Sprintf("runs/%d/job", ghCtx.RunID)) {
 				// skip waiting for this check if this is named the same as another check
-				if !foundSelf {
+				if !foundSelf && c.GetName() == ghCtx.Job {
 					action.Infof("Skipping check: %q", c.GetName())
 					foundSelf = true
+					continue
 				}
-				continue
 			}
 			if found := rules.First(c.GetName()); found != nil {
 				toCheck = append(toCheck, c)
