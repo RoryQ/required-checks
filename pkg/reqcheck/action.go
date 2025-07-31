@@ -40,7 +40,7 @@ func run(ctx context.Context, cfg *Config, action *githubactions.Action, pr PRCl
 	}
 
 	workflowPatterns := cfg.RequiredWorkflowPatterns
-	pathWorkflowPatterns, err := getConditionalPathPatterns(ctx, cfg, action, pr)
+	pathWorkflowPatterns, err := getConditionalPathPatterns(ctx, ghCtx, cfg, action, pr)
 	if err != nil {
 		return err
 	}
@@ -125,8 +125,13 @@ func run(ctx context.Context, cfg *Config, action *githubactions.Action, pr PRCl
 	return nil
 }
 
-func getConditionalPathPatterns(ctx context.Context, cfg *Config, action *githubactions.Action, pr PRClient) ([]string, error) {
+func getConditionalPathPatterns(ctx context.Context, ghCtx *githubactions.GitHubContext, cfg *Config, action *githubactions.Action, pr PRClient) ([]string, error) {
 	if len(cfg.ConditionalPathWorkflowPatterns) == 0 {
+		return nil, nil
+	}
+
+	if ghCtx.EventName == "merge_group" {
+		action.Debugf("Skipping path globs for merge_group")
 		return nil, nil
 	}
 

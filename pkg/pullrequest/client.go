@@ -20,7 +20,9 @@ type Client struct {
 
 type Option[T any] = sql.Null[T]
 
-func Optional[T any](t T) Option[T] { return Option[T]{V: t, Valid: true} }
+func Some[T any](t T) Option[T] { return Option[T]{V: t, Valid: true} }
+
+func None[T any]() Option[T] { return Option[T]{} }
 
 func (pr Client) ListChecks(ctx context.Context, sha string, options *github.ListCheckRunsOptions) ([]*github.CheckRun, error) {
 	var checks []*github.CheckRun
@@ -78,13 +80,13 @@ func NewClient(action *githubactions.Action, gh *github.Client) (Client, error) 
 	var number Option[int]
 	switch ctx.EventName {
 	case "merge_group":
-		action.Debugf("Skipping path globs for merge_group")
+		// no PR number available for merge_group
 	default:
 		n, err := getPRNumber(ctx.Event)
 		if err != nil {
 			return Client{}, err
 		}
-		number = Optional(n)
+		number = Some(n)
 	}
 
 	owner, repo := getRepo(action, ctx.Event)
