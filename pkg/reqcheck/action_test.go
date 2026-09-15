@@ -5,13 +5,13 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"slices"
 	"testing"
 	"time"
 
-	"github.com/google/go-github/v61/github"
+	"github.com/google/go-github/v92/github"
 	"github.com/sethvargo/go-githubactions"
 	"github.com/stretchr/testify/assert"
-	"slices"
 
 	"github.com/roryq/required-checks/pkg/xassert"
 )
@@ -34,14 +34,14 @@ func TestRun(t *testing.T) {
 			},
 			checkRuns: []*github.CheckRun{
 				{
-					Name:       github.String("required-check-1"),
-					Status:     github.String(StatusCompleted),
-					Conclusion: github.String(ConclusionSuccess),
+					Name:       new("required-check-1"),
+					Status:     new(StatusCompleted),
+					Conclusion: new(ConclusionSuccess),
 				},
 				{
-					Name:       github.String("required-check-2"),
-					Status:     github.String(StatusCompleted),
-					Conclusion: github.String(ConclusionSuccess),
+					Name:       new("required-check-2"),
+					Status:     new(StatusCompleted),
+					Conclusion: new(ConclusionSuccess),
 				},
 			},
 			assertError: assert.NoError,
@@ -61,14 +61,14 @@ func TestRun(t *testing.T) {
 			},
 			checkRuns: []*github.CheckRun{
 				{
-					Name:       github.String("required-check-1"),
-					Status:     github.String(StatusCompleted),
-					Conclusion: github.String(ConclusionSuccess),
+					Name:       new("required-check-1"),
+					Status:     new(StatusCompleted),
+					Conclusion: new(ConclusionSuccess),
 				},
 				{
-					Name:       github.String("required-check-2"),
-					Status:     github.String(StatusCompleted),
-					Conclusion: github.String(ConclusionFailure),
+					Name:       new("required-check-2"),
+					Status:     new(StatusCompleted),
+					Conclusion: new(ConclusionFailure),
 				},
 			},
 			assertError:       xassert.ErrorContains(`required checks failed: ["required-check-2"]`),
@@ -82,9 +82,9 @@ func TestRun(t *testing.T) {
 			},
 			checkRuns: []*github.CheckRun{
 				{
-					Name:       github.String("required-check-1"),
-					Status:     github.String(StatusCompleted),
-					Conclusion: github.String(ConclusionSuccess),
+					Name:       new("required-check-1"),
+					Status:     new(StatusCompleted),
+					Conclusion: new(ConclusionSuccess),
 				},
 			},
 			assertError: xassert.ErrorContains(`required checks not found: ["missing-check"]`),
@@ -104,9 +104,9 @@ func TestRun(t *testing.T) {
 			listChecksError: io.ErrUnexpectedEOF,
 			checkRuns: []*github.CheckRun{
 				{
-					Name:       github.String("required-check-1"),
-					Status:     github.String(StatusCompleted),
-					Conclusion: github.String(ConclusionSuccess),
+					Name:       new("required-check-1"),
+					Status:     new(StatusCompleted),
+					Conclusion: new(ConclusionSuccess),
 				},
 			},
 			assertError: assert.NoError,
@@ -127,13 +127,13 @@ func TestRun(t *testing.T) {
 			},
 			checkRuns: []*github.CheckRun{
 				{
-					Name:   github.String("required-check-1"),
-					Status: github.String(StatusInProgress),
+					Name:   new("required-check-1"),
+					Status: new(StatusInProgress),
 				},
 				{
-					Name:       github.String("required-check-1"),
-					Status:     github.String(StatusCompleted),
-					Conclusion: github.String(ConclusionSuccess),
+					Name:       new("required-check-1"),
+					Status:     new(StatusCompleted),
+					Conclusion: new(ConclusionSuccess),
 				},
 			},
 			assertError: assert.NoError,
@@ -155,17 +155,17 @@ func TestRun(t *testing.T) {
 			},
 			checkRuns: []*github.CheckRun{
 				{
-					Name:   github.String("go unit tests"),
-					Status: github.String(StatusInProgress),
+					Name:   new("go unit tests"),
+					Status: new(StatusInProgress),
 				},
 				{
-					Name:       github.String("go unit tests"),
-					Status:     github.String(StatusCompleted),
-					Conclusion: github.String(ConclusionSuccess),
+					Name:       new("go unit tests"),
+					Status:     new(StatusCompleted),
+					Conclusion: new(ConclusionSuccess),
 				},
 			},
 			prFiles: []*github.CommitFile{
-				{Filename: github.String("main.go")},
+				{Filename: new("main.go")},
 			},
 			assertError:       assert.NoError,
 			progressiveChecks: true,
@@ -186,7 +186,7 @@ func TestRun(t *testing.T) {
 			},
 			checkRuns: []*github.CheckRun{},
 			prFiles: []*github.CommitFile{
-				{Filename: github.String("main.go")},
+				{Filename: new("main.go")},
 			},
 			assertError: xassert.ErrorContains(`required checks not found: ["go unit tests"]`),
 			expectedOutputLines: []string{
@@ -202,18 +202,18 @@ func TestRun(t *testing.T) {
 			},
 			checkRuns: []*github.CheckRun{
 				{
-					Name:       github.String("required-check"),
-					Status:     github.String(StatusCompleted),
-					Conclusion: github.String(ConclusionSuccess),
+					Name:       new("required-check"),
+					Status:     new(StatusCompleted),
+					Conclusion: new(ConclusionSuccess),
 				},
 				{
-					Name:       github.String("go unit tests"),
-					Status:     github.String(StatusCompleted),
-					Conclusion: github.String(ConclusionSuccess),
+					Name:       new("go unit tests"),
+					Status:     new(StatusCompleted),
+					Conclusion: new(ConclusionSuccess),
 				},
 			},
 			prFiles: []*github.CommitFile{
-				{Filename: github.String("main.go")},
+				{Filename: new("main.go")},
 			},
 			assertError: assert.NoError,
 			expectedOutputLines: []string{

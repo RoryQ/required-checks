@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/google/go-github/v61/github"
+	"github.com/google/go-github/v92/github"
 	"github.com/sethvargo/go-githubactions"
 	"golang.org/x/oauth2"
 
@@ -29,7 +29,10 @@ func run() error {
 		tc = oauth2.NewClient(ctx, ts)
 	}
 
-	gh := github.NewClient(tc)
+	gh, err := github.NewClient(github.WithHTTPClient(tc))
+	if err != nil {
+		return err
+	}
 	return reqcheck.Run(ctx, cfg, action, gh)
 }
 

@@ -21,7 +21,7 @@ inputs:
   version:
     description: Release version of action to run.
 runs:
-  using: node20
+  using: node24
   main: index.js
 branding:
   icon: "shield"
