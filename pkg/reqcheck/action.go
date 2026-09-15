@@ -7,15 +7,15 @@ import (
 	"io"
 	"net/http"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/bmatcuk/doublestar/v4"
-	"github.com/google/go-github/v61/github"
+	"github.com/google/go-github/v92/github"
 	"github.com/samber/lo"
 	"github.com/sethvargo/go-githubactions"
-	"slices"
 
 	"github.com/roryq/required-checks/pkg/pullrequest"
 )

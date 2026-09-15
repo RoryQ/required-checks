@@ -150,9 +150,9 @@ func TestDefaultTargetSHA_FromPullRequest(t *testing.T) {
 	require.NoError(t, err)
 	defer os.Remove(eventFile.Name())
 
-	prEvent := map[string]interface{}{
-		"pull_request": map[string]interface{}{
-			"head": map[string]interface{}{
+	prEvent := map[string]any{
+		"pull_request": map[string]any{
+			"head": map[string]any{
 				"sha": "pr-head-sha",
 			},
 		},
@@ -186,7 +186,7 @@ func TestDefaultTargetSHA_FromCommit(t *testing.T) {
 	require.NoError(t, err)
 	defer os.Remove(eventFile.Name())
 
-	commitEvent := map[string]interface{}{}
+	commitEvent := map[string]any{}
 
 	eventData, err := json.Marshal(commitEvent)
 	require.NoError(t, err)

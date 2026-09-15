@@ -6,7 +6,7 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/google/go-github/v61/github"
+	"github.com/google/go-github/v92/github"
 	"github.com/sethvargo/go-githubactions"
 )
 
@@ -37,9 +37,7 @@ func (pr Client) ListChecks(ctx context.Context, sha string, options *github.Lis
 		}
 		if options == nil {
 			options = &github.ListCheckRunsOptions{
-				ListOptions: github.ListOptions{
-					Page: resp.NextPage,
-				},
+				Page: resp.NextPage,
 			}
 		}
 		options.Page = resp.NextPage
