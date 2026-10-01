@@ -100,16 +100,21 @@ func NewClient(action *githubactions.Action, gh *github.Client) (Client, error) 
 
 func getRepo(action *githubactions.Action, event map[string]any) (string, string) {
 	splitRepo := func(name string) (string, string) {
-		split := strings.Split(name, "/")
-		return split[0], split[1]
+		owner, repo, found := strings.Cut(name, "/")
+		if !found {
+			return "", ""
+		}
+		return owner, repo
 	}
 
 	if fullName := action.Getenv("GITHUB_REPOSITORY"); fullName != "" {
-		splitRepo(fullName)
+		return splitRepo(fullName)
 	}
 
-	if fullName, ok := event["repository"].(map[string]any)["full_name"]; ok {
-		return splitRepo(fullName.(string))
+	if repoMap, ok := event["repository"].(map[string]any); ok {
+		if fullName, ok := repoMap["full_name"].(string); ok {
+			return splitRepo(fullName)
+		}
 	}
 	return "", ""
 }
