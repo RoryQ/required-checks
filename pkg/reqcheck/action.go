@@ -52,8 +52,8 @@ func run(ctx context.Context, cfg *Config, action *githubactions.Action, pr PRCl
 	}
 
 	missingRequiredCount := 0
-	foundSelf := false
 	for {
+		foundSelf := false
 		checks, err := pr.ListChecks(ctx, cfg.TargetSHA, nil)
 		if err != nil {
 			// Retry if we get an unexpected EOF error, which could be due to proxies.
@@ -68,7 +68,7 @@ func run(ctx context.Context, cfg *Config, action *githubactions.Action, pr PRCl
 		action.Infof("Checks: %q", checkNames(checks))
 
 		requiredSet := lo.SliceToMap(workflowPatterns, func(item string) (string, bool) { return item, false })
-		toCheck := []*github.CheckRun{}
+		toCheckMap := make(map[string]*github.CheckRun)
 		for _, c := range checks {
 			if strings.Contains(c.GetDetailsURL(), fmt.Sprintf("runs/%d/job", ghCtx.RunID)) {
 				// skip waiting for this check if this is named the same as another check
@@ -78,11 +78,22 @@ func run(ctx context.Context, cfg *Config, action *githubactions.Action, pr PRCl
 					continue
 				}
 			}
-			if found := rules.First(c.GetName()); found != nil {
-				toCheck = append(toCheck, c)
-				requiredSet[found.String()] = true
+			matchedRules := rules.Match(c.GetName())
+			if len(matchedRules) > 0 {
+				name := c.GetName()
+				if existing, ok := toCheckMap[name]; !ok || isNewerCheckRun(c, existing) {
+					toCheckMap[name] = c
+				}
+				for _, r := range matchedRules {
+					requiredSet[r.String()] = true
+				}
 			}
 		}
+
+		toCheck := lo.Values(toCheckMap)
+		sort.Slice(toCheck, func(i, j int) bool {
+			return toCheck[i].GetName() < toCheck[j].GetName()
+		})
 
 		// If required is not found, retry in case the workflow is still being created then fail as there will not be a successful check.
 		requiredNotFound := lo.OmitByValues(requiredSet, []bool{true})
@@ -232,6 +243,35 @@ func (r Ruleset) First(test string) *regexp.Regexp {
 		}
 	}
 	return nil
+}
+
+func (r Ruleset) Match(test string) []*regexp.Regexp {
+	var matched []*regexp.Regexp
+	for _, re := range r {
+		if re.MatchString(test) {
+			matched = append(matched, re)
+		}
+	}
+	return matched
+}
+
+func isNewerCheckRun(a, b *github.CheckRun) bool {
+	if a == nil {
+		return false
+	}
+	if b == nil {
+		return true
+	}
+	if a.GetID() != b.GetID() {
+		return a.GetID() > b.GetID()
+	}
+	if !a.GetStartedAt().Equal(b.GetStartedAt()) {
+		return a.GetStartedAt().After(b.GetStartedAt().Time)
+	}
+	if !a.GetCompletedAt().Equal(b.GetCompletedAt()) {
+		return a.GetCompletedAt().After(b.GetCompletedAt().Time)
+	}
+	return true
 }
 
 func sortStrings(slice []string) []string {

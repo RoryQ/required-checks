@@ -223,6 +223,102 @@ func TestRun(t *testing.T) {
 				`All checks completed`,
 			},
 		},
+		"stale cancelled check superseded by newer successful run": {
+			config: &Config{
+				RequiredWorkflowPatterns:  []string{"required-check-1"},
+				MissingRequiredRetryCount: 1,
+				TargetSHA:                 "test-sha",
+			},
+			checkRuns: []*github.CheckRun{
+				{
+					ID:         new(int64(100)),
+					Name:       new("required-check-1"),
+					Status:     new(StatusCompleted),
+					Conclusion: new(ConclusionCancelled),
+					StartedAt:  &github.Timestamp{Time: time.Now().Add(-10 * time.Minute)},
+				},
+				{
+					ID:         new(int64(200)),
+					Name:       new("required-check-1"),
+					Status:     new(StatusCompleted),
+					Conclusion: new(ConclusionSuccess),
+					StartedAt:  &github.Timestamp{Time: time.Now().Add(-5 * time.Minute)},
+				},
+			},
+			assertError: assert.NoError,
+			expectedOutputLines: []string{
+				"All checks completed",
+			},
+			progressiveChecks: false,
+		},
+		"stale cancelled check superseded by newer successful run out of order": {
+			config: &Config{
+				RequiredWorkflowPatterns:  []string{"required-check-1"},
+				MissingRequiredRetryCount: 1,
+				TargetSHA:                 "test-sha",
+			},
+			checkRuns: []*github.CheckRun{
+				{
+					ID:         new(int64(200)),
+					Name:       new("required-check-1"),
+					Status:     new(StatusCompleted),
+					Conclusion: new(ConclusionSuccess),
+					StartedAt:  &github.Timestamp{Time: time.Now().Add(-5 * time.Minute)},
+				},
+				{
+					ID:         new(int64(100)),
+					Name:       new("required-check-1"),
+					Status:     new(StatusCompleted),
+					Conclusion: new(ConclusionCancelled),
+					StartedAt:  &github.Timestamp{Time: time.Now().Add(-10 * time.Minute)},
+				},
+			},
+			assertError: assert.NoError,
+			expectedOutputLines: []string{
+				"All checks completed",
+			},
+			progressiveChecks: false,
+		},
+		"stale cancelled check with queued new run": {
+			config: &Config{
+				RequiredWorkflowPatterns:  []string{"required-check-1"},
+				MissingRequiredRetryCount: 1,
+				TargetSHA:                 "test-sha",
+			},
+			checkRuns: []*github.CheckRun{
+				{
+					ID:         new(int64(100)),
+					Name:       new("required-check-1"),
+					Status:     new(StatusCompleted),
+					Conclusion: new(ConclusionCancelled),
+					StartedAt:  &github.Timestamp{Time: time.Now().Add(-10 * time.Minute)},
+				},
+				{
+					ID:     new(int64(200)),
+					Name:   new("required-check-1"),
+					Status: new(StatusQueued),
+				},
+				{
+					ID:         new(int64(100)),
+					Name:       new("required-check-1"),
+					Status:     new(StatusCompleted),
+					Conclusion: new(ConclusionCancelled),
+					StartedAt:  &github.Timestamp{Time: time.Now().Add(-10 * time.Minute)},
+				},
+				{
+					ID:         new(int64(200)),
+					Name:       new("required-check-1"),
+					Status:     new(StatusCompleted),
+					Conclusion: new(ConclusionSuccess),
+					StartedAt:  &github.Timestamp{Time: time.Now().Add(-5 * time.Minute)},
+				},
+			},
+			assertError: assert.NoError,
+			expectedOutputLines: []string{
+				"All checks completed",
+			},
+			progressiveChecks: false,
+		},
 	}
 
 	for name, tc := range testCases {
@@ -322,3 +418,122 @@ func setupAction(event string, values ...string) (*githubactions.Action, *bytes.
 	)
 	return action, b
 }
+
+func TestIsNewerCheckRun(t *testing.T) {
+	now := time.Now()
+	earlier := now.Add(-5 * time.Minute)
+	later := now.Add(5 * time.Minute)
+
+	t.Run("nil checks", func(t *testing.T) {
+		assert.False(t, isNewerCheckRun(nil, nil))
+		assert.False(t, isNewerCheckRun(nil, &github.CheckRun{}))
+		assert.True(t, isNewerCheckRun(&github.CheckRun{}, nil))
+	})
+
+	t.Run("higher ID is newer", func(t *testing.T) {
+		a := &github.CheckRun{ID: new(int64(200))}
+		b := &github.CheckRun{ID: new(int64(100))}
+		assert.True(t, isNewerCheckRun(a, b))
+		assert.False(t, isNewerCheckRun(b, a))
+	})
+
+	t.Run("higher ID takes precedence even if StartedAt is zero (queued)", func(t *testing.T) {
+		queuedNewRun := &github.CheckRun{
+			ID:     new(int64(200)),
+			Status: new(StatusQueued),
+		}
+		cancelledOldRun := &github.CheckRun{
+			ID:         new(int64(100)),
+			Status:     new(StatusCompleted),
+			Conclusion: new(ConclusionCancelled),
+			StartedAt:  &github.Timestamp{Time: earlier},
+		}
+		assert.True(t, isNewerCheckRun(queuedNewRun, cancelledOldRun))
+		assert.False(t, isNewerCheckRun(cancelledOldRun, queuedNewRun))
+	})
+
+	t.Run("StartedAt comparison when IDs are zero", func(t *testing.T) {
+		a := &github.CheckRun{StartedAt: &github.Timestamp{Time: later}}
+		b := &github.CheckRun{StartedAt: &github.Timestamp{Time: earlier}}
+		assert.True(t, isNewerCheckRun(a, b))
+		assert.False(t, isNewerCheckRun(b, a))
+	})
+
+	t.Run("CompletedAt comparison when IDs and StartedAt are zero/equal", func(t *testing.T) {
+		a := &github.CheckRun{CompletedAt: &github.Timestamp{Time: later}}
+		b := &github.CheckRun{CompletedAt: &github.Timestamp{Time: earlier}}
+		assert.True(t, isNewerCheckRun(a, b))
+		assert.False(t, isNewerCheckRun(b, a))
+	})
+
+	t.Run("presence of ID over missing ID", func(t *testing.T) {
+		a := &github.CheckRun{ID: new(int64(100))}
+		b := &github.CheckRun{}
+		assert.True(t, isNewerCheckRun(a, b))
+		assert.False(t, isNewerCheckRun(b, a))
+	})
+
+	t.Run("fallback when all attributes equal", func(t *testing.T) {
+		a := &github.CheckRun{Name: new("test")}
+		b := &github.CheckRun{Name: new("test")}
+		assert.True(t, isNewerCheckRun(a, b))
+	})
+}
+
+func TestProgressiveStaleCancelledCheck(t *testing.T) {
+	action, output := setupAction("pull-request.opened")
+	cfg := &Config{
+		RequiredWorkflowPatterns:  []string{"test-check"},
+		MissingRequiredRetryCount: 1,
+		InitialDelay:              time.Millisecond,
+		PollFrequency:             time.Millisecond,
+		TargetSHA:                 "test-sha",
+	}
+
+	callCount := 0
+	mockPR := &mockPullRequestClient{
+		ListChecksFunc: func(ctx context.Context, sha string, options *github.ListCheckRunsOptions) ([]*github.CheckRun, error) {
+			callCount++
+			if callCount == 1 {
+				// First poll: old cancelled run and new in_progress run
+				return []*github.CheckRun{
+					{
+						ID:         new(int64(100)),
+						Name:       new("test-check"),
+						Status:     new(StatusCompleted),
+						Conclusion: new(ConclusionCancelled),
+					},
+					{
+						ID:     new(int64(200)),
+						Name:   new("test-check"),
+						Status: new(StatusInProgress),
+					},
+				}, nil
+			}
+			// Second poll: old cancelled run and new completed success run
+			return []*github.CheckRun{
+				{
+					ID:         new(int64(100)),
+					Name:       new("test-check"),
+					Status:     new(StatusCompleted),
+					Conclusion: new(ConclusionCancelled),
+				},
+				{
+					ID:         new(int64(200)),
+					Name:       new("test-check"),
+					Status:     new(StatusCompleted),
+					Conclusion: new(ConclusionSuccess),
+				},
+			}, nil
+		},
+		ListFilesFunc: func(ctx context.Context, options *github.ListOptions) ([]*github.CommitFile, error) {
+			return nil, nil
+		},
+	}
+
+	err := run(context.Background(), cfg, action, mockPR)
+	assert.NoError(t, err)
+	assert.Contains(t, output.String(), `Not all checks completed: ["test-check"]`)
+	assert.Contains(t, output.String(), "All checks completed")
+}
+
