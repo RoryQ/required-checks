@@ -74,6 +74,38 @@ func TestRun(t *testing.T) {
 			assertError:       xassert.ErrorContains(`required checks failed: ["required-check-2"]`),
 			progressiveChecks: false,
 		},
+		"required check with action_required conclusion fails": {
+			config: &Config{
+				RequiredWorkflowPatterns:  []string{"required-check-1"},
+				MissingRequiredRetryCount: 1,
+				TargetSHA:                 "test-sha",
+			},
+			checkRuns: []*github.CheckRun{
+				{
+					Name:       new("required-check-1"),
+					Status:     new(StatusCompleted),
+					Conclusion: new(ConclusionActionRequired),
+				},
+			},
+			assertError:       xassert.ErrorContains(`required checks failed: ["required-check-1"]`),
+			progressiveChecks: false,
+		},
+		"required check with stale conclusion fails": {
+			config: &Config{
+				RequiredWorkflowPatterns:  []string{"required-check-1"},
+				MissingRequiredRetryCount: 1,
+				TargetSHA:                 "test-sha",
+			},
+			checkRuns: []*github.CheckRun{
+				{
+					Name:       new("required-check-1"),
+					Status:     new(StatusCompleted),
+					Conclusion: new(ConclusionStale),
+				},
+			},
+			assertError:       xassert.ErrorContains(`required checks failed: ["required-check-1"]`),
+			progressiveChecks: false,
+		},
 		"required check missing": {
 			config: &Config{
 				RequiredWorkflowPatterns:  []string{"required-check-1", "missing-check"},

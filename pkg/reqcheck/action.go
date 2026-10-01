@@ -220,7 +220,13 @@ const (
 	StatusPending    = "pending"
 )
 
-var failedConclusions = []string{ConclusionFailure, ConclusionCancelled, ConclusionTimedOut}
+var failedConclusions = []string{
+	ConclusionFailure,
+	ConclusionCancelled,
+	ConclusionTimedOut,
+	ConclusionActionRequired,
+	ConclusionStale,
+}
 
 type Ruleset []*regexp.Regexp
 
