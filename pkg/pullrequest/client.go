@@ -116,16 +116,21 @@ func getRepo(action *githubactions.Action, event map[string]any) (string, string
 
 func getPRNumber(event map[string]any) (int, error) {
 	getNumber := func(eventName string) (int, error) {
-		eventField, ok := event[eventName]
+		eventField, ok := event[eventName].(map[string]any)
 		if !ok {
 			return 0, errors.New("incorrect event type")
 		}
 
-		number, ok := eventField.(map[string]any)["number"]
-		if !ok {
+		switch num := eventField["number"].(type) {
+		case float64:
+			return int(num), nil
+		case int:
+			return num, nil
+		case int64:
+			return int(num), nil
+		default:
 			return 0, errors.New("cannot get pull_request number")
 		}
-		return int(number.(float64)), nil
 	}
 
 	num, err := getNumber("pull_request")
