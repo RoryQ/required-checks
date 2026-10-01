@@ -77,14 +77,17 @@ func NewClient(action *githubactions.Action, gh *github.Client) (Client, error) 
 
 	var number Option[int]
 	switch ctx.EventName {
-	case "merge_group":
-		// no PR number available for merge_group
-	default:
+	case "pull_request", "pull_request_target", "issue_comment", "issues":
 		n, err := getPRNumber(ctx.Event)
 		if err != nil {
 			return Client{}, err
 		}
 		number = Some(n)
+	default:
+		// For non-PR events (e.g. merge_group, push, workflow_dispatch), attempt to get PR number if available.
+		if n, err := getPRNumber(ctx.Event); err == nil {
+			number = Some(n)
+		}
 	}
 
 	owner, repo := getRepo(action, ctx.Event)
