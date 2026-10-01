@@ -208,3 +208,30 @@ func TestDefaultTargetSHA_FromCommit(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "commit-sha", sha)
 }
+
+func TestDefaultTargetSHA_MalformedPayloadDoesNotPanic(t *testing.T) {
+	eventFile, err := os.CreateTemp("", "malformed-event-*.json")
+	require.NoError(t, err)
+	defer os.Remove(eventFile.Name())
+
+	// pull_request is a string instead of object
+	prEvent := map[string]any{
+		"pull_request": "invalid-string-instead-of-map",
+	}
+
+	eventData, err := json.Marshal(prEvent)
+	require.NoError(t, err)
+
+	_, err = eventFile.Write(eventData)
+	require.NoError(t, err)
+	eventFile.Close()
+
+	t.Setenv("GITHUB_EVENT_PATH", eventFile.Name())
+	t.Setenv("GITHUB_SHA", "fallback-commit-sha")
+
+	action := githubactions.New()
+	sha, err := defaultTargetSHA(action)
+	require.NoError(t, err)
+	assert.Equal(t, "fallback-commit-sha", sha)
+}
+

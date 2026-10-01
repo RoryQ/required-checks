@@ -103,12 +103,16 @@ func defaultTargetSHA(action *githubactions.Action) (string, error) {
 
 	sha := ctx.SHA
 
-	if pr, ok := ctx.Event["pull_request"]; ok {
-		sha = pr.(map[string]any)["head"].(map[string]any)["sha"].(string)
-		action.Infof("Pull Request SHA: %s", sha)
-	} else {
-		action.Infof("Commit SHA: %s", sha)
+	if pr, ok := ctx.Event["pull_request"].(map[string]any); ok {
+		if head, ok := pr["head"].(map[string]any); ok {
+			if headSha, ok := head["sha"].(string); ok && headSha != "" {
+				sha = headSha
+				action.Infof("Pull Request SHA: %s", sha)
+				return sha, nil
+			}
+		}
 	}
+	action.Infof("Commit SHA: %s", sha)
 
 	return sha, nil
 }
