@@ -48,18 +48,36 @@ function downloadBinary(versionTag, binary) {
     return result.status
 }
 
+function getAuthHeader() {
+    const token = process.env.INPUT_TOKEN || process.env.GITHUB_TOKEN;
+    if (token) {
+        return `-H "Authorization: Bearer ${token}"`;
+    }
+    return '';
+}
+
+function getExecutablePath() {
+    const isWindows = os.platform() === 'win32' || os.platform() === 'windows';
+    return isWindows ? `.\\${BinaryName}.exe` : `./${BinaryName}`;
+}
+
 function determineVersion() {
     if (!!process.env.INPUT_VERSION) {
         return process.env.INPUT_VERSION
     }
-    const result = cp.execSync(`curl --silent --location "https://api.github.com/repos/${OwnerRepo}/releases/latest" | jq  -r ".. .tag_name? // empty"`)
-    let ver = result.toString().trim();
-    // fallback to v1.0.0
-    if (ver === "") {
-        logDebug("No version found, falling back to v1.0.0")
-        ver = "v1.0.0"
+    try {
+        const authHeader = getAuthHeader();
+        const headerArg = authHeader ? `${authHeader} ` : '';
+        const raw = cp.execSync(`curl --silent --location ${headerArg}"https://api.github.com/repos/${OwnerRepo}/releases/latest"`).toString();
+        const json = JSON.parse(raw);
+        if (json && json.tag_name) {
+            return json.tag_name;
+        }
+    } catch (e) {
+        logDebug("Failed to determine latest version:", e);
     }
-    return ver
+    logDebug("No version found, falling back to v1.3.1")
+    return "v1.3.1"
 }
 
 function main() {
@@ -90,7 +108,8 @@ function main() {
                                                                                                   
                                                                                                   `)
 
-    const spawnSyncReturns = cp.spawnSync(`./${BinaryName}`, { stdio: 'inherit' })
+    const execPath = getExecutablePath();
+    const spawnSyncReturns = cp.spawnSync(execPath, { stdio: 'inherit' })
     logDebug(spawnSyncReturns)
     status = spawnSyncReturns.status
     if (typeof status === 'number') {
